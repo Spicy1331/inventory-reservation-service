@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory Reservation Service</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+    /* Header */
+    header { background: #1e293b; padding: 16px 24px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { font-size: 18px; color: #38bdf8; }
+    #user-info { font-size: 13px; color: #94a3b8; }
+    #user-info span { color: #22c55e; font-weight: 600; }
+    #logout-btn { background: #ef4444; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-left: 12px; }
+
+    /* Layout */
+    .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+    .tab { padding: 8px 18px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; cursor: pointer; font-size: 13px; color: #94a3b8; transition: all 0.2s; }
+    .tab:hover { border-color: #38bdf8; color: #38bdf8; }
+    .tab.active { background: #38bdf8; color: #0f172a; border-color: #38bdf8; font-weight: 600; }
+
+    /* Sections */
+    .section { display: none; }
+    .section.active { display: block; }
+
+    /* Cards */
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+    .card h3 { color: #38bdf8; margin-bottom: 12px; font-size: 15px; }
+
+    /* Forms */
+    .form-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    input, select { background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: 8px 12px; border-radius: 6px; font-size: 13px; flex: 1; min-width: 140px; }
+    input:focus { outline: none; border-color: #38bdf8; }
+    button { padding: 8px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
+    .btn-primary { background: #38bdf8; color: #0f172a; }
+    .btn-success { background: #22c55e; color: white; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-warning { background: #f59e0b; color: #0f172a; }
+    button:hover { opacity: 0.85; transform: translateY(-1px); }
+
+    /* Response */
+    .response { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; margin-top: 12px; font-family: 'Consolas', monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; color: #a5f3fc; }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #334155; color: #38bdf8; padding: 8px 10px; text-align: left; }
+    td { padding: 8px 10px; border-bottom: 1px solid #1e293b; }
+    tr:hover td { background: #1e293b; }
+
+    /* Status badges */
+    .badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+    .badge-pending { background: #f59e0b33; color: #f59e0b; }
+    .badge-confirmed { background: #22c55e33; color: #22c55e; }
+    .badge-expired { background: #ef444433; color: #ef4444; }
+    .badge-cancelled { background: #6b728033; color: #94a3b8; }
+
+    /* Auth page */
+    .auth-container { max-width: 400px; margin: 80px auto; }
+    .auth-container .card { padding: 30px; }
+    .auth-container h2 { text-align: center; color: #38bdf8; margin-bottom: 20px; }
+    .auth-container input { width: 100%; margin-bottom: 10px; flex: none; }
+    .auth-container button { width: 100%; padding: 10px; margin-top: 6px; }
+    .auth-toggle { text-align: center; margin-top: 14px; font-size: 13px; color: #94a3b8; }
+    .auth-toggle a { color: #38bdf8; cursor: pointer; text-decoration: underline; }
+
+    /* Product grid */
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+    .product-card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; }
+    .product-card h4 { color: #f8fafc; margin-bottom: 6px; }
+    .product-card .price { color: #22c55e; font-size: 18px; font-weight: 700; }
+    .product-card .stock-info { display: flex; gap: 12px; margin-top: 8px; font-size: 12px; }
+    .stock-item { padding: 4px 8px; background: #0f172a; border-radius: 4px; }
+    .stock-item.available { color: #22c55e; }
+    .stock-item.reserved { color: #f59e0b; }
+    .stock-item.total { color: #94a3b8; }
+
+    .mt-10 { margin-top: 10px; }
+    .mb-10 { margin-bottom: 10px; }
+    .text-muted { color: #64748b; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <h1>📦 Inventory Reservation Service</h1>
+    <div id="user-info" style="display:none;">
+      Logged in as <span id="username-display"></span> (<span id="role-display"></span>)
+      <button id="logout-btn" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <!-- Auth Section (shown when not logged in) -->
+  <div id="auth-section">
+    <div class="auth-container">
+      <!-- Login -->
+      <div id="login-form" class="card">
+        <h2>🔐 Login</h2>
+        <input type="email" id="login-email" placeholder="Email" value="admin@test.com">
+        <input type="password" id="login-password" placeholder="Password" value="admin123">
+        <button class="btn-primary" onclick="login()">Login</button>
+        <div class="auth-toggle">Don't have an account? <a onclick="showRegister()">Register</a></div>
+        <div id="login-response" class="response" style="display:none;"></div>
+      </div>
+
+      <!-- Register -->
+      <div id="register-form" class="card" style="display:none;">
+        <h2>📝 Register</h2>
+        <input type="text" id="reg-username" placeholder="Username">
+        <input type="email" id="reg-email" placeholder="Email">
+        <input type="password" id="reg-password" placeholder="Password">
+        <select id="reg-role">
+          <option value="customer">Customer</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button class="btn-primary" onclick="register()">Register</button>
+        <div class="auth-toggle">Already have an account? <a onclick="showLogin()">Login</a></div>
+        <div id="register-response" class="response" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App (shown when logged in) -->
+  <div id="app-section" style="display:none;">
+    <div class="container">
+      <!-- Tabs -->
+      <div class="tabs" id="tabs-container"></div>
+
+      <!-- Products Section -->
+      <div id="section-products" class="section active">
+        <div class="card">
+          <h3>📋 All Products</h3>
+          <button class="btn-primary mb-10" onclick="loadProducts()">🔄 Refresh</button>
+          <div id="products-list"></div>
+        </div>
+
+        <!-- Admin: Create Product -->
+        <div id="admin-create-product" class="card" style="display:none;">
+          <h3>➕ Create Product</h3>
+          <div class="form-row">
+            <input type="text" id="prod-name" placeholder="Product Name">
+            <input type="text" id="prod-desc" placeholder="Description">
+            <input type="number" id="prod-price" placeholder="Price" step="0.01">
+            <input type="number" id="prod-stock" placeholder="Total Stock">
+            <button class="btn-success" onclick="createProduct()">Create</button>
+          </div>
+          <div id="create-product-response" class="response" style="display:none;"></div>
+        </div>
+
+        <!-- Admin: Adjust Stock -->
+        <div id="admin-adjust-stock" class="card" style="display:none;">
+          <h3>📊 Adjust Stock</h3>
+          <div class="form-row">
+            <input type="text" id="stock-product-id" placeholder="Product ID">
+            <input type="number" id="stock-adjustment" placeholder="Adjustment (+/-)">
+            <input type="text" id="stock-reason" placeholder="Reason">
+            <button class="btn-warning" onclick="adjustStock()">Adjust</button>
+          </div>
+          <div id="adjust-stock-response" class="response" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- Reservations Section -->
+      <div id="section-reservations" class="section">
+        <!-- Create Reservation -->
+        <div id="customer-reserve" class="card" style="display:none;">
+          <h3>🛒 Create Reservation</h3>
+          <div class="form-row">
+            <input type="text" id="res-product-id" placeholder="Product ID">
+            <input type="number" id="res-quantity" placeholder="Quantity" min="1" value="1">
+            <input type="text" id="res-idempotency" placeholder="Idempotency Key (optional)">
+            <button class="btn-primary" onclick="createReservation()">Reserve</button>
+          </div>
+          <div id="create-reservation-response" class="response" style="display:none;"></div>
+        </div>
+
+        <div class="card">
+          <h3>📋 My Reservations</h3>
+          <button class="btn-primary mb-10" onclick="loadReservations()">🔄 Refresh</button>
+          <div id="reservations-list"></div>
+        </div>
+      </div>
+
+      <!-- Payments Section -->
+      <div id="section-payments" class="section">
+        <div class="card">
+          <h3>✅ Confirm Payment</h3>
+          <div class="form-row">
+            <input type="text" id="pay-reservation-id" placeholder="Reservation ID">
+            <input type="text" id="pay-payment-id" placeholder="Payment ID (e.g. PAY-001)">
+            <button class="btn-success" onclick="confirmPayment()">Confirm Payment</button>
+          </div>
+          <div id="confirm-payment-response" class="response" style="display:none;"></div>
+        </div>
+
+        <div class="card">
+          <h3>❌ Fail Payment</h3>
+          <div class="form-row">
+            <input type="text" id="fail-reservation-id" placeholder="Reservation ID">
+            <input type="text" id="fail-reason" placeholder="Reason" value="Payment declined">
+            <button class="btn-danger" onclick="failPayment()">Fail Payment</button>
+          </div>
+          <div id="fail-payment-response" class="response" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- Audit Section -->
+      <div id="section-audit" class="section">
+        <div class="card">
+          <h3>📜 Inventory Audit Trail</h3>
+          <div class="form-row">
+            <input type="text" id="audit-product-id" placeholder="Product ID">
+            <button class="btn-primary" onclick="loadAudit()">View Audit Log</button>
+          </div>
+          <div id="audit-list" class="mt-10"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:3000/api';
+    let token = localStorage.getItem('token') || '';
+    let currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+
+    // =================== AUTH ===================
+    function showRegister() {
+      document.getElementById('login-form').style.display = 'none';
+      document.getElementById('register-form').style.display = 'block';
+    }
+    function showLogin() {
+      document.getElementById('login-form').style.display = 'block';
+      document.getElementById('register-form').style.display = 'none';
+    }
+
+    async function login() {
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      const res = await apiCall('/auth/login', 'POST', { email, password }, false);
+      showResponse('login-response', res);
+      if (res.success) {
+        token = res.data.token;
+        currentUser = res.data.user;
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(currentUser));
+        showApp();
+      }
+    }
+
+    async function register() {
+      const data = {
+        username: document.getElementById('reg-username').value,
+        email: document.getElementById('reg-email').value,
+        password: document.getElementById('reg-password').value,
+        role: document.getElementById('reg-role').value,
+      };
+      const res = await apiCall('/auth/register', 'POST', data, false);
+      showResponse('register-response', res);
+      if (res.success) {
+        token = res.data.token;
+        currentUser = res.data.user;
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(currentUser));
+        showApp();
+      }
+    }
+
+    function logout() {
+      token = '';
+      currentUser = null;
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      document.getElementById('auth-section').style.display = 'block';
+      document.getElementById('app-section').style.display = 'none';
+      document.getElementById('user-info').style.display = 'none';
+    }
+
+    // =================== APP INIT ===================
+    function showApp() {
+      document.getElementById('auth-section').style.display = 'none';
+      document.getElementById('app-section').style.display = 'block';
+      document.getElementById('user-info').style.display = 'flex';
+      document.getElementById('username-display').textContent = currentUser.username;
+      document.getElementById('role-display').textContent = currentUser.role;
+
+      // Set up tabs based on role
+      const tabs = [
+        { id: 'products', label: '📦 Products' },
+        { id: 'reservations', label: '🛒 Reservations' },
+        { id: 'payments', label: '💳 Payments' },
+      ];
+      if (currentUser.role === 'admin') {
+        tabs.push({ id: 'audit', label: '📜 Audit Trail' });
+      }
+
+      const tabsHtml = tabs.map((t, i) =>
+        `<div class="tab ${i === 0 ? 'active' : ''}" data-tab="${t.id}" onclick="switchTab('${t.id}')">${t.label}</div>`
+      ).join('');
+      document.getElementById('tabs-container').innerHTML = tabsHtml;
+
+      // Show/hide role-specific elements
+      const isAdmin = currentUser.role === 'admin';
+      document.getElementById('admin-create-product').style.display = isAdmin ? 'block' : 'none';
+      document.getElementById('admin-adjust-stock').style.display = isAdmin ? 'block' : 'none';
+      document.getElementById('customer-reserve').style.display = !isAdmin ? 'block' : 'none';
+
+      switchTab('products');
+      loadProducts();
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById(`section-${tabId}`).classList.add('active');
+      document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
+
+      if (tabId === 'products') loadProducts();
+      if (tabId === 'reservations') loadReservations();
+    }
+
+    // =================== PRODUCTS ===================
+    async function loadProducts() {
+      const res = await apiCall('/products', 'GET', null, false);
+      if (!res.success) return;
+
+      const products = res.data.products;
+      if (products.length === 0) {
+        document.getElementById('products-list').innerHTML = '<p class="text-muted">No products found.</p>';
+        return;
+      }
+
+      const html = `<div class="product-grid">${products.map(p => `
+        <div class="product-card">
+          <h4>${p.name}</h4>
+          <p class="text-muted" style="margin-bottom:6px;">${p.description || 'No description'}</p>
+          <div class="price">$${parseFloat(p.price).toFixed(2)}</div>
+          <div class="stock-info">
+            <span class="stock-item available">Available: ${p.available_stock}</span>
+            <span class="stock-item reserved">Reserved: ${p.reserved_stock}</span>
+            <span class="stock-item total">Total: ${p.total_stock}</span>
+          </div>
+          <p class="text-muted mt-10" style="font-size:11px; word-break:break-all;">ID: ${p.id}</p>
+          <div class="mt-10">
+            ${currentUser && currentUser.role === 'customer' ? `<button class="btn-primary" onclick="quickReserve('${p.id}')" style="font-size:12px;">Reserve</button>` : ''}
+            ${currentUser && currentUser.role === 'admin' ? `<button class="btn-warning" onclick="quickAudit('${p.id}')" style="font-size:12px;">View Audit</button>` : ''}
+          </div>
+        </div>
+      `).join('')}</div>`;
+      document.getElementById('products-list').innerHTML = html;
+    }
+
+    async function createProduct() {
+      const data = {
+        name: document.getElementById('prod-name').value,
+        description: document.getElementById('prod-desc').value,
+        price: parseFloat(document.getElementById('prod-price').value),
+        total_stock: parseInt(document.getElementById('prod-stock').value),
+      };
+      const res = await apiCall('/products', 'POST', data);
+      showResponse('create-product-response', res);
+      if (res.success) loadProducts();
+    }
+
+    async function adjustStock() {
+      const productId = document.getElementById('stock-product-id').value;
+      const data = {
+        adjustment: parseInt(document.getElementById('stock-adjustment').value),
+        reason: document.getElementById('stock-reason').value,
+      };
+      const res = await apiCall(`/products/${productId}/stock`, 'PATCH', data);
+      showResponse('adjust-stock-response', res);
+      if (res.success) loadProducts();
+    }
+
+    // =================== RESERVATIONS ===================
+    function quickReserve(productId) {
+      switchTab('reservations');
+      document.getElementById('res-product-id').value = productId;
+    }
+
+    async function createReservation() {
+      const data = {
+        product_id: document.getElementById('res-product-id').value,
+        quantity: parseInt(document.getElementById('res-quantity').value),
+      };
+      const headers = {};
+      const idempotencyKey = document.getElementById('res-idempotency').value;
+      if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
+
+      const res = await apiCall('/reservations', 'POST', data, true, headers);
+      showResponse('create-reservation-response', res);
+      if (res.success) loadReservations();
+    }
+
+    async function loadReservations() {
+      const res = await apiCall('/reservations', 'GET');
+      if (!res.success) {
+        document.getElementById('reservations-list').innerHTML = `<p class="text-muted">${res.error?.message || 'Failed to load'}</p>`;
+        return;
+      }
+
+      const reservations = res.data.reservations;
+      if (reservations.length === 0) {
+        document.getElementById('reservations-list').innerHTML = '<p class="text-muted">No reservations found.</p>';
+        return;
+      }
+
+      const html = `<table>
+        <tr><th>ID</th><th>Product</th><th>Qty</th><th>Status</th><th>Expires</th><th>Actions</th></tr>
+        ${reservations.map(r => `
+          <tr>
+            <td style="font-size:11px;word-break:break-all;max-width:120px;">${r.id}</td>
+            <td>${r.product_name || r.product_id}</td>
+            <td>${r.quantity}</td>
+            <td><span class="badge badge-${r.status}">${r.status}</span></td>
+            <td style="font-size:11px;">${new Date(r.expires_at).toLocaleString()}</td>
+            <td>
+              ${r.status === 'pending' ? `
+                <button class="btn-success" onclick="quickConfirm('${r.id}')" style="font-size:11px;padding:4px 8px;">Pay</button>
+                <button class="btn-danger" onclick="cancelReservation('${r.id}')" style="font-size:11px;padding:4px 8px;">Cancel</button>
+              ` : '-'}
+            </td>
+          </tr>
+        `).join('')}
+      </table>`;
+      document.getElementById('reservations-list').innerHTML = html;
+    }
+
+    function quickConfirm(reservationId) {
+      switchTab('payments');
+      document.getElementById('pay-reservation-id').value = reservationId;
+      document.getElementById('pay-payment-id').value = 'PAY-' + Date.now();
+    }
+
+    async function cancelReservation(id) {
+      if (!confirm('Cancel this reservation?')) return;
+      const res = await apiCall(`/reservations/${id}`, 'DELETE');
+      alert(res.success ? 'Reservation cancelled!' : (res.error?.message || 'Failed'));
+      loadReservations();
+    }
+
+    // =================== PAYMENTS ===================
+    async function confirmPayment() {
+      const data = {
+        reservation_id: document.getElementById('pay-reservation-id').value,
+        payment_id: document.getElementById('pay-payment-id').value,
+      };
+      const res = await apiCall('/payments/confirm', 'POST', data);
+      showResponse('confirm-payment-response', res);
+    }
+
+    async function failPayment() {
+      const data = {
+        reservation_id: document.getElementById('fail-reservation-id').value,
+        reason: document.getElementById('fail-reason').value,
+      };
+      const res = await apiCall('/payments/fail', 'POST', data);
+      showResponse('fail-payment-response', res);
+    }
+
+    // =================== AUDIT ===================
+    function quickAudit(productId) {
+      switchTab('audit');
+      document.getElementById('audit-product-id').value = productId;
+      loadAudit();
+    }
+
+    async function loadAudit() {
+      const productId = document.getElementById('audit-product-id').value;
+      if (!productId) return alert('Enter a Product ID');
+      const res = await apiCall(`/audit/products/${productId}`, 'GET');
+      if (!res.success) {
+        document.getElementById('audit-list').innerHTML = `<p class="text-muted">${res.error?.message || 'Failed'}</p>`;
+        return;
+      }
+
+      const logs = res.data.audit_log;
+      const html = `
+        <p class="mb-10">Product: <strong>${res.data.product.name}</strong> | Entries: ${logs.length}</p>
+        <table>
+          <tr><th>Time</th><th>Action</th><th>Qty</th><th>Before</th><th>After</th><th>Reason</th><th>By</th></tr>
+          ${logs.map(l => `
+            <tr>
+              <td style="font-size:11px;">${new Date(l.created_at).toLocaleString()}</td>
+              <td><span class="badge badge-${l.action === 'confirmed' ? 'confirmed' : l.action === 'reserved' ? 'pending' : l.action === 'released' ? 'expired' : 'cancelled'}">${l.action}</span></td>
+              <td>${l.quantity_changed}</td>
+              <td>${l.stock_before}</td>
+              <td>${l.stock_after}</td>
+              <td style="font-size:11px;">${l.reason}</td>
+              <td>${l.performed_by_username || 'system'}</td>
+            </tr>
+          `).join('')}
+        </table>`;
+      document.getElementById('audit-list').innerHTML = html;
+    }
+
+    // =================== API HELPER ===================
+    async function apiCall(path, method = 'GET', body = null, auth = true, extraHeaders = {}) {
+      try {
+        const headers = { 'Content-Type': 'application/json', ...extraHeaders };
+        if (auth && token) headers['Authorization'] = `Bearer ${token}`;
+
+        const options = { method, headers };
+        if (body && method !== 'GET') options.body = JSON.stringify(body);
+
+        const response = await fetch(`${API}${path}`, options);
+        const data = await response.json();
+        return data;
+      } catch (err) {
+        return { success: false, error: { message: err.message } };
+      }
+    }
+
+    function showResponse(elementId, data) {
+      const el = document.getElementById(elementId);
+      el.style.display = 'block';
+      el.textContent = JSON.stringify(data, null, 2);
+    }
+
+    // =================== INIT ===================
+    if (token && currentUser) {
+      showApp();
+    }
+  </script>
+</body>
+</html>
