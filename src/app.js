@@ -31,12 +31,42 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+const { expireReservations } = require('./jobs/expiryWorker');
+
 // --------------- Routes ---------------
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/reservations', reservationRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/audit', auditRoutes);
+
+// Cron trigger route for serverless environments (e.g. Vercel Crons)
+app.get('/api/cron/expire-reservations', async (req, res, next) => {
+  // Validate request is authorized (optional security check using CRON_SECRET)
+  const authHeader = req.headers.authorization;
+  const cronSecret = process.env.CRON_SECRET;
+  
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return res.status(401).json({
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'Unauthorized cron trigger invocation',
+      }
+    });
+  }
+
+  try {
+    console.log('⏱️ Cron: Triggering reservation expiry sweep...');
+    await expireReservations();
+    res.json({
+      success: true,
+      message: 'Reservation expiry sweep executed successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // --------------- 404 Handler ---------------
 app.use((req, res) => {

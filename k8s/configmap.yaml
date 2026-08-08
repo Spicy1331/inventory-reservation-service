@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  labels:
+    app: inventory-app
+data:
+  PORT: "3000"
+  NODE_ENV: "production"
+  DB_HOST: "mysql-service"
+  DB_NAME: "inventory_reservation"
+  DB_USER: "root"
+  DB_SSL: "false"
+  RESERVATION_TTL_MINUTES: "10"
+  EXPIRY_CRON_INTERVAL: "*/30 * * * * *"

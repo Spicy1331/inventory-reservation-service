@@ -146,6 +146,10 @@ const updateStock = async (req, res, next) => {
 
     await conn.commit();
 
+    // Broadcast updated stock levels via WebSocket
+    const { broadcastProductUpdate } = require('../websocket');
+    broadcastProductUpdate(productId);
+
     // Fetch updated product
     const [updated] = await db.query('SELECT * FROM products WHERE id = ?', [productId]);
 

@@ -62,6 +62,14 @@ const expireReservations = async () => {
     }
 
     await conn.commit();
+
+    // Broadcast stock updates for all affected products via WebSockets
+    const { broadcastProductUpdate } = require('../websocket');
+    const uniqueProductIds = [...new Set(expiredReservations.map(r => r.product_id))];
+    for (const productId of uniqueProductIds) {
+      broadcastProductUpdate(productId);
+    }
+
     console.log(`⏱️  Expiry sweep complete. Processed ${expiredReservations.length} reservation(s).`);
   } catch (error) {
     await conn.rollback();

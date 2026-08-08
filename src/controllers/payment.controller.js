@@ -116,6 +116,10 @@ const confirmPayment = async (req, res, next) => {
 
     await conn.commit();
 
+    // Broadcast stock levels update via WebSocket
+    const { broadcastProductUpdate } = require('../websocket');
+    broadcastProductUpdate(reservation.product_id);
+
     // Fetch the order
     const [order] = await db.query('SELECT * FROM orders WHERE id = ?', [orderId]);
 
@@ -208,6 +212,10 @@ const failPayment = async (req, res, next) => {
     );
 
     await conn.commit();
+
+    // Broadcast stock levels update via WebSocket
+    const { broadcastProductUpdate } = require('../websocket');
+    broadcastProductUpdate(reservation.product_id);
 
     console.log(`✅ Payment failed: reservation ${reservation_id} cancelled, stock released`);
 

@@ -1,8 +1,8 @@
 const mysql = require('mysql2/promise');
 const config = require('./config');
 
-// Create a connection pool for efficient connection reuse
-const pool = mysql.createPool({
+// Create connection pool configurations
+const poolConfig = {
   host: config.db.host,
   port: config.db.port,
   user: config.db.user,
@@ -11,7 +11,14 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-});
+};
+
+if (config.db.ssl) {
+  poolConfig.ssl = config.db.ssl;
+}
+
+// Create a connection pool for efficient connection reuse
+const pool = mysql.createPool(poolConfig);
 
 // Test connection on startup
 pool.getConnection()

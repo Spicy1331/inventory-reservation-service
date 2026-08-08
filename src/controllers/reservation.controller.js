@@ -96,6 +96,10 @@ const createReservation = async (req, res, next) => {
     await conn.commit();
     // ========== END CRITICAL SECTION ==========
 
+    // Broadcast stock levels update via WebSocket
+    const { broadcastProductUpdate } = require('../websocket');
+    broadcastProductUpdate(product_id);
+
     // Fetch the created reservation
     const [reservation] = await db.query('SELECT * FROM reservations WHERE id = ?', [reservationId]);
 
@@ -245,6 +249,10 @@ const cancelReservation = async (req, res, next) => {
     );
 
     await conn.commit();
+
+    // Broadcast stock levels update via WebSocket
+    const { broadcastProductUpdate } = require('../websocket');
+    broadcastProductUpdate(reservation.product_id);
 
     console.log(`✅ Reservation cancelled: ${reservationId}`);
 
